@@ -6,13 +6,16 @@ import {
   Image,
   Button,
   TouchableOpacity,
+  Platform,
 } from "react-native";
+import * as ImagePicker from 'expo-image-picker';
 import * as Sharing from 'expo-sharing';
 
 const App = () => {
 
   const [image, setImage] = useState(null);
   const [gif, setGif] = useState(null);
+  const [imagePicked, setImagePicked] = useState(null);
 
   const getRamdomImage = async () => {
     const getRandomInt = max => Math.floor(Math.random() * max);
@@ -28,6 +31,53 @@ const App = () => {
     const { original } = images;
     const { url } = original;
     setGif(url);
+  }
+
+  const pickImage = async () => {
+
+    const permissionResult = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    console.log(permissionResult);
+
+    if(permissionResult.granted === false) {
+      alert('Permission to access camera roll is required!');
+      return;
+    }
+
+    // No permissions request is necessary for launching the image library
+    const pickerResult = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
+      allowsEditing: true,
+      aspect: [4, 3],
+      quality: 1,
+    });
+    console.log(pickerResult);
+
+    if(pickerResult.cancelled === true) {
+      return;
+    }
+
+    setImagePicked(pickerResult.uri);
+  };
+
+  const share = async () => {
+    if(!(await Sharing.isAvailableAsync())) {
+      alert(`Uh oh, sharing isn't available on your platform`);
+      return;
+    }
+
+    if(Platform.OS === 'web') {
+      const response = await fetch(imagePicked);
+      const blob = await response.blob();
+      const extension = blob.type.split('/')[1];
+      const file = new File([blob], `fileName.${extension}`, { type: blob.type });
+      navigator.share({
+        title: 'Hello',
+        text: 'Check out this image!',
+        files: [file],
+      })
+    } else{
+      await Sharing.shareAsync(imagePicked);
+    }
   }
 
   const shareGif = async () => {
@@ -62,6 +112,21 @@ const App = () => {
               <Text style={styles.touchableText}>Sharing gif</Text>
             </TouchableOpacity>
           </>
+        )
+      }
+
+      {/* IMAGE PICKER */}
+      <Button title="Pick image from your device" onPress={pickImage} />
+      {
+        imagePicked && <Image source={{ uri: imagePicked }} style={styles.image} />
+      }
+
+      {/* SHARING */}
+      {
+        imagePicked && (
+          <TouchableOpacity style={styles.touchable} onPress={share}>
+            <Text style={styles.touchableText}>Sharing image picked</Text>
+          </TouchableOpacity>
         )
       }
 
